@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: cardinfo
+  profiles:
+    active: default
+  config:
+    import: optional:file:data/config.yaml
+  messages:
+    basename: messages
+    encoding: UTF-8
+
+logging:
+  pattern:
+    console: "%date{yyyy-MM-dd HH:mm:ss} %magenta([%thread]) %highlight(%-5level) %logger:%line - %yellow(%msg %n)"
+  level:
+    root: OFF
+    l9g: OFF
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+    session:
+      timeout: 9h
+
+management:
+  server:
+    port: 9000
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+springdoc:
+  show-actuator: false
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+cardinfo:
+  attributes-mapper-class: l9g.cardinfo.mapper.SoniaAttributeMapper

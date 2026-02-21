@@ -1,0 +1,52 @@
+
+logging:
+  level:
+    l9g: DEBUG
+    root: INFO
+    org.jline: OFF
+    reactor.netty.channel: OFF
+    io.netty.util.internal: OFF
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+ldap:
+  host:
+    name: id.dev.sonia.de
+    port: 3389
+    ssl: false
+  bind:
+    dn: cn=Directory Manager
+    password: "<your password>"
+  base-dn: dc=sonia,dc=de
+  scope: sub
+  filter: (soniaExternalUid=*)
+  user:
+    id: soniaExternalUid
+    attributes: soniaExternalUid
+
+uidgen:
+  # 9 Stellen ist Maximum
+  number-of-digits: 7
+  unique-tag: "unitag"
+
+bearer-tokens:
+  map:
+    development-token1:
+      token: "<your token>"
+      owner: ich
+      description: Mein eigener Bearer Authorization Token.
+      enabled: true
+    sample-token2:
+      token: "<your token>"
+      owner: hase
+      description: er weiß von nichts
+      enabled: true
+    sample-token3:
+      token: "<your token>"
+      owner: hase
+      description: er weiß von gar nichts
+      enabled: false

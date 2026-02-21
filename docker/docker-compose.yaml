@@ -1,0 +1,15 @@
+services:
+ 
+  l9g-uidgen:
+    image: ghcr.io/thorsten-l/l9g-uidgen:latest
+    container_name: l9g-uidgen
+    hostname: uidgen.dev.sonia.de
+    restart: unless-stopped
+    volumes:
+      - ../data:/data:ro
+    environment:
+      - TZ=Europe/Berlin
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "id.dev.sonia.de:host-gateway"
