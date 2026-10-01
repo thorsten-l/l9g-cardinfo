@@ -25,6 +25,8 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 /**
+ * Resolves {@link AuthenticatedBearerToken} parameters with the configuration
+ * of the authenticated bearer token.
  *
  * @author Thorsten Ludewig (t.ludewig@gmail.com)
  */
@@ -35,6 +37,9 @@ public class BearerTokenArgumentResolver implements
 
   private final BearerTokenConfig tokenConfig;
 
+  /**
+   * @param tokenConfig the configured bearer tokens
+   */
   public BearerTokenArgumentResolver(BearerTokenConfig tokenConfig)
   {
     this.tokenConfig = tokenConfig;

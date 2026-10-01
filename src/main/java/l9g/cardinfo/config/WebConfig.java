@@ -24,6 +24,8 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
+ * Registers the {@link BearerTokenArgumentResolver} for
+ * {@code @AuthenticatedBearerToken} controller parameters.
  *
  * @author Thorsten Ludewig (t.ludewig@gmail.com)
  */

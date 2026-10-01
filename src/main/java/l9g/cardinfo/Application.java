@@ -22,6 +22,15 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 
+/**
+ * Entry point of the cardinfo service.
+ * <p>
+ * Besides starting the service, the command line options {@code -e},
+ * {@code -g}, {@code -i} and {@code -h} provide the encryption tools for the
+ * configuration.
+ *
+ * @author Thorsten Ludewig (t.ludewig@gmail.com)
+ */
 @Slf4j
 @SpringBootApplication(exclude =
 {
@@ -30,6 +39,12 @@ import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoCon
 public class Application
 {
 
+  /**
+   * Runs a command line option, or starts the service.
+   *
+   * @param args {@code -e <clear text>}, {@code -g}, {@code -i}, {@code -h}
+   * or Spring Boot arguments
+   */
   public static void main(String[] args)
   {
     if(args != null)

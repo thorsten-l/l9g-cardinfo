@@ -16,11 +16,17 @@
 package l9g.cardinfo.token;
 
 /**
+ * Thrown if a controller requires a bearer token but the request has no
+ * (valid) authenticated principal. Results in HTTP 400.
  *
  * @author Thorsten Ludewig (t.ludewig@gmail.com)
  */
 public class MissingOrInvalidTokenException extends RuntimeException {
   private static final long serialVersionUID = -7715861645594874965L;
+
+    /**
+     * @param principal the name of the principal, logged only
+     */
     public MissingOrInvalidTokenException(String principal) {
         super("Missing or invalid token for principal: " + principal);
     }

@@ -45,3 +45,4 @@ springdoc:
 
 cardinfo:
   attributes-mapper-class: l9g.cardinfo.mapper.SoniaAttributeMapper
+  attributes-mapper-v2-class: l9g.cardinfo.v2.mapper.SoniaAttributeMapper

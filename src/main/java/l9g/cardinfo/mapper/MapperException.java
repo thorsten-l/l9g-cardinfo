@@ -16,11 +16,16 @@
 package l9g.cardinfo.mapper;
 
 /**
+ * Thrown if LDAP attributes cannot be mapped, e.g. a malformed student
+ * validity code. Results in HTTP 500.
  *
  * @author Thorsten Ludewig (t.ludewig@gmail.com)
  */
 public class MapperException extends RuntimeException
 {
+  /**
+   * @param message the error message (logged only, not sent to the client)
+   */
   public MapperException( String message )
   {
     super(message);

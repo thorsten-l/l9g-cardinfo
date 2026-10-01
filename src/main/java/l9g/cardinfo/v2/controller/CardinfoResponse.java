@@ -13,14 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package l9g.cardinfo.controller;
+package l9g.cardinfo.v2.controller;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  *
- * Represents the response containing card information for a user.
+ * Represents the response containing card information for a user (API v2).
+ * <p>
+ * Contains all fields of {@link l9g.cardinfo.controller.CardinfoResponse}
+ * plus the Deutschlandticket information.
  *
  * @param firstName The first name of the cardholder.
  * @param lastName The last name of the cardholder.
@@ -35,6 +38,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param validUntil The date until which the card is valid (yyyy-mm-dd);
  * {@code null} if the account does not expire or, for students, no validity
  * information is available.
+ * @param validTicket {@code true} if today lies within the timeframe of at
+ * least one Deutschlandticket entitlement; always present in the JSON, also in
+ * error responses.
+ * @param eduPersonEntitlement The Deutschlandticket entitlements of the
+ * cardholder (comma separated); {@code null} if there are none.
  * @param status A status message, typically "OK" on success or an error
  * description.
  *
@@ -73,6 +81,12 @@ public record CardinfoResponse(
   @Schema(description = "The date until which the card is valid. A 'null' value means the account does not expire or, for students, that no validity information is available. Remember 'null' attributes will not be transferred. (format: yyyy-mm-dd)", example = "2028-12-31")
   String validUntil,
 
+  @Schema(description = "True if today (Europe/Berlin) lies within the timeframe of at least one Deutschlandticket entitlement, otherwise false.", example = "true")
+  boolean validTicket,
+
+  @Schema(description = "The Deutschlandticket entitlements of the cardholder (comma separated). Other entitlements are not transferred, not transferred at all if there are none.", example = "urn:mace:ride-ticketing.de:entitlement:dticket:timeframe:20260901-20270228")
+  String eduPersonEntitlement,
+
   @Schema(description = "A status message, typically 'OK' on success.", example = "OK")
   String status)
   {
@@ -85,7 +99,8 @@ public record CardinfoResponse(
    */
   public CardinfoResponse(String status)
   {
-    this(null, null, null, null, null, null, null, null, null, null, status);
+    this(null, null, null, null, null, null, null, null, null, null, false, null,
+      status);
   }
 
 }

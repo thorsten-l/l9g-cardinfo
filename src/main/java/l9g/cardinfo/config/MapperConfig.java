@@ -15,25 +15,49 @@
  */
 package l9g.cardinfo.config;
 
-import l9g.cardinfo.mapper.LdapEntryToCardinfoResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Creates the configured LDAP attribute mappers for API v1 and v2.
+ *
+ * @author Thorsten Ludewig (t.ludewig@gmail.com)
+ */
 @Configuration
 @Slf4j
 public class MapperConfig
 {
 
+  /**
+   * @param className {@code cardinfo.attributes-mapper-class}
+   * @return the v1 mapper
+   * @throws ReflectiveOperationException if the class cannot be instantiated
+   */
   @Bean
-  public LdapEntryToCardinfoResponse ldapEntryToCardinfoResponse(
+  public l9g.cardinfo.mapper.LdapEntryToCardinfoResponse ldapEntryToCardinfoResponse(
     @Value("${cardinfo.attributes-mapper-class}") String className)
     throws ReflectiveOperationException
   {
     log.info("Using {} to map an LDAP entry to a cardinfo response.", className);
     Class<?> clazz = Class.forName(className);
-    return (LdapEntryToCardinfoResponse)clazz.getDeclaredConstructor().newInstance();
+    return (l9g.cardinfo.mapper.LdapEntryToCardinfoResponse)clazz.getDeclaredConstructor().newInstance();
+  }
+
+  /**
+   * @param className {@code cardinfo.attributes-mapper-v2-class}
+   * @return the v2 mapper
+   * @throws ReflectiveOperationException if the class cannot be instantiated
+   */
+  @Bean
+  public l9g.cardinfo.v2.mapper.LdapEntryToCardinfoResponse ldapEntryToCardinfoResponseV2(
+    @Value("${cardinfo.attributes-mapper-v2-class}") String className)
+    throws ReflectiveOperationException
+  {
+    log.info("Using {} to map an LDAP entry to a cardinfo v2 response.", className);
+    Class<?> clazz = Class.forName(className);
+    return (l9g.cardinfo.v2.mapper.LdapEntryToCardinfoResponse)clazz.getDeclaredConstructor().newInstance();
   }
 
 }

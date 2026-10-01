@@ -52,6 +52,14 @@ public class BuildInfo
 {
   private final BuildProperties buildProperties;
 
+  /**
+   * Retrieves the application's build properties.
+   * <p>
+   * The properties are collected from the {@link BuildProperties} bean, sorted
+   * alphabetically by key, and returned as a map.
+   *
+   * @return A {@link Map} containing the build properties as key-value pairs.
+   */
   @Operation(summary = "Get application build information",
              description = "Retrieves various build properties of the application, such as version, name, and Java environment details.",
              responses =
@@ -63,14 +71,6 @@ public class BuildInfo
                                      @Schema(implementation = Map.class)))
              })
   @GetMapping
-  /**
-   * Retrieves the application's build properties.
-   * <p>
-   * The properties are collected from the {@link BuildProperties} bean, sorted
-   * alphabetically by key, and returned as a map.
-   *
-   * @return A {@link Map} containing the build properties as key-value pairs.
-   */
   public Map<String, String> buildinfoGET()
   {
     log.debug("buildinfoGET");

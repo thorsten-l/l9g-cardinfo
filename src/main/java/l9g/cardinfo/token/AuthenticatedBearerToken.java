@@ -21,6 +21,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * Marks a controller parameter of type {@link BearerTokenConfig.BearerToken}
+ * that receives the configuration of the authenticated bearer token.
  *
  * @author Thorsten Ludewig (t.ludewig@gmail.com)
  */

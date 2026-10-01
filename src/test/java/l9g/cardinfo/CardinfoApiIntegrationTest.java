@@ -21,6 +21,9 @@ import com.unboundid.ldap.listener.InMemoryListenerConfig;
 import de.l9g.crypto.core.CryptoHandler;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +62,17 @@ class CardinfoApiIntegrationTest
     "ERROR: Unauthorized, a valid Bearer token is required.";
 
   private static final String INTERNAL_ERROR = "ERROR: Internal server error.";
+
+  private static final String API_V2 = "/api/v2/cardinfo";
+
+  private static final String OTHER_ENTITLEMENT =
+    "urn:mace:dir:entitlement:common-lib-terms";
+
+  private static final String VALID_TICKET = ticket(-10, 10);
+
+  private static final String EXPIRED_TICKET = ticket(-200, -1);
+
+  private static final String OTHER_VALID_TICKET = ticket(-3, 120);
 
   private static InMemoryDirectoryServer ldapServer;
 
@@ -130,16 +144,39 @@ class CardinfoApiIntegrationTest
       "soniaBirthday: 1970-01-01", "soniaCustomerNumber: 0012345678",
       "soniaChipcardBarcode: 87654321", "soniaHisPersonId: 654321",
       "employeeType: b", "soniaIsValidFrom: 2024-01-01",
-      "soniaIsValidUntil: 2028-12-31");
+      "soniaIsValidUntil: 2028-12-31",
+      "eduPersonEntitlement: " + OTHER_ENTITLEMENT,
+      "eduPersonEntitlement: " + VALID_TICKET);
     person("ou=people", "student", "1002", "givenName: Erika",
       "sn: Musterfrau", "employeeType: s",
-      "soniaStudentValidityCode: X:01.04.2025:30.09.2026");
-    person("ou=people", "broken", "1003", "employeeType: s");
+      "soniaStudentValidityCode: X:01.04.2025:30.09.2026",
+      "eduPersonEntitlement: " + EXPIRED_TICKET);
+    person("ou=people", "broken", "1003", "employeeType: s",
+      "soniaStudentValidityCode: X:2025-04-01:30.9.2026");
+    person("ou=people", "novalidity", "1005", "givenName: Nina",
+      "employeeType: s", "soniaIsValidFrom: 2024-01-01",
+      "soniaStudentValidityCode: 00:na:na:na:na:na:na");
+    person("ou=people", "nocode", "1006", "givenName: Niko",
+      "employeeType: s", "soniaIsValidUntil: 2028-12-31");
+    person("ou=people", "ticket2", "1004", "givenName: Tina", "sn: Ticket",
+      "employeeType: b", "eduPersonEntitlement: " + OTHER_VALID_TICKET);
     person("ou=people", "dup1", "3001", "sn: Dup");
     person("ou=people", "dup2", "3001", "sn: Dup");
     person("ou=other", "other", "2001", "givenName: Otto", "sn: Other");
 
     ldapServer.startListening();
+  }
+
+  /**
+   * @return a Deutschlandticket entitlement with a timeframe relative to today
+   */
+  private static String ticket(int fromDays, int untilDays)
+  {
+    LocalDate today = LocalDate.now(ZoneId.of("Europe/Berlin"));
+    DateTimeFormatter format = DateTimeFormatter.BASIC_ISO_DATE;
+    return "urn:mace:ride-ticketing.de:entitlement:dticket:timeframe:"
+      + today.plusDays(fromDays).format(format) + "-"
+      + today.plusDays(untilDays).format(format);
   }
 
   private static void person(String ou, String uid, String externalUid,
@@ -290,6 +327,25 @@ class CardinfoApiIntegrationTest
   }
 
   @Test
+  void studentWithoutValidityHasNoValidityDates()
+    throws Exception
+  {
+    for(String api : new String[]{ API, API_V2 })
+    {
+      for(String userId : new String[]{ "1005", "1006" })
+      {
+        mockMvc.perform(get(api).param("userId", userId)
+          .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.status").value("OK"))
+          .andExpect(jsonPath("$.employeeType").value("s"))
+          .andExpect(jsonPath("$.validFrom").doesNotExist())
+          .andExpect(jsonPath("$.validUntil").doesNotExist());
+      }
+    }
+  }
+
+  @Test
   void unknownUserIsNotFound()
     throws Exception
   {
@@ -372,6 +428,122 @@ class CardinfoApiIntegrationTest
       .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
       .andExpect(status().isInternalServerError())
       .andExpect(jsonPath("$.status").value(INTERNAL_ERROR));
+  }
+
+  // --- v2 -----------------------------------------------------------------
+
+  @Test
+  void v2RequiresAuthentication()
+    throws Exception
+  {
+    mockMvc.perform(get(API_V2).param("userId", "1001"))
+      .andExpect(status().isUnauthorized())
+      .andExpect(jsonPath("$.status").value(UNAUTHORIZED));
+    mockMvc.perform(head(API_V2).param("userId", "1001"))
+      .andExpect(status().isUnauthorized());
+    mockMvc.perform(get(API_V2).param("userId", "1001")
+      .header(HttpHeaders.AUTHORIZATION, bearer("disabled-token-value")))
+      .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void v2ReturnsValidTicket()
+    throws Exception
+  {
+    mockMvc.perform(get(API_V2).param("userId", "1001")
+      .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.status").value("OK"))
+      .andExpect(jsonPath("$.firstName").value("John"))
+      .andExpect(jsonPath("$.barcodeFormat").value("code39"))
+      .andExpect(jsonPath("$.validUntil").value("2028-12-31"))
+      .andExpect(jsonPath("$.validTicket").value(true))
+      // only the ticket entitlement, other entitlements are not passed on
+      .andExpect(jsonPath("$.eduPersonEntitlement").value(VALID_TICKET));
+  }
+
+  @Test
+  void v2ExpiredTicketIsInvalid()
+    throws Exception
+  {
+    mockMvc.perform(get(API_V2).param("userId", "1002")
+      .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.validFrom").value("2025-04-01"))
+      .andExpect(jsonPath("$.validTicket").value(false))
+      .andExpect(jsonPath("$.eduPersonEntitlement").value(EXPIRED_TICKET));
+  }
+
+  @Test
+  void v2MissingEntitlementIsInvalid()
+    throws Exception
+  {
+    mockMvc.perform(get(API_V2).param("userId", "2001")
+      .header(HttpHeaders.AUTHORIZATION, bearer("other-token-value")))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.validTicket").value(false))
+      .andExpect(jsonPath("$.eduPersonEntitlement").doesNotExist());
+  }
+
+  @Test
+  void v2ErrorsAndRestrictions()
+    throws Exception
+  {
+    mockMvc.perform(get(API_V2).param("userId", "9999")
+      .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+      .andExpect(status().isNotFound())
+      .andExpect(jsonPath("$.status").value("ERROR: User not found."));
+    mockMvc.perform(get(API_V2).param("userId", "2001")
+      .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+      .andExpect(status().isNotFound());
+    mockMvc.perform(get(API_V2).param("userId", "*")
+      .header(HttpHeaders.AUTHORIZATION, bearer("other-token-value")))
+      .andExpect(status().isNotFound());
+    mockMvc.perform(get(API_V2).param("userId", "3001")
+      .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+      .andExpect(status().isInternalServerError())
+      .andExpect(jsonPath("$.status").value(INTERNAL_ERROR));
+    mockMvc.perform(get(API_V2)
+      .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+      .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void v2ReturnsTheEntitlementOfEachUser()
+    throws Exception
+  {
+    assertThat(OTHER_VALID_TICKET).isNotEqualTo(VALID_TICKET);
+
+    // alternate requests, a value of one user must never show up for another
+    for(int i = 0; i < 3; i++)
+    {
+      mockMvc.perform(get(API_V2).param("userId", "1001")
+        .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.firstName").value("John"))
+        .andExpect(jsonPath("$.eduPersonEntitlement").value(VALID_TICKET));
+      mockMvc.perform(get(API_V2).param("userId", "1004")
+        .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.firstName").value("Tina"))
+        .andExpect(jsonPath("$.validTicket").value(true))
+        .andExpect(jsonPath("$.eduPersonEntitlement").value(OTHER_VALID_TICKET));
+      mockMvc.perform(get(API_V2).param("userId", "1002")
+        .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.eduPersonEntitlement").value(EXPIRED_TICKET));
+    }
+  }
+
+  @Test
+  void v1DoesNotReturnTicketInformation()
+    throws Exception
+  {
+    mockMvc.perform(get(API).param("userId", "1001")
+      .header(HttpHeaders.AUTHORIZATION, bearer("people-token-value")))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.validTicket").doesNotExist())
+      .andExpect(jsonPath("$.eduPersonEntitlement").doesNotExist());
   }
 
   // --- HTTP security -------------------------------------------------------

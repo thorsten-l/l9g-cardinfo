@@ -5,12 +5,42 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 1.2.0 - unreleased
+## 2.0.0 - 2026-10-01
+
+### Added
+
+- Endpoint `GET /api/v2/cardinfo` with the response `l9g.cardinfo.v2.controller.CardinfoResponse`: all
+  fields of v1 plus
+  - `validTicket` – `true` if today (Europe/Berlin) lies within the timeframe of
+    at least one Deutschlandticket entitlement
+    `urn:mace:ride-ticketing.de:entitlement:dticket:timeframe:yyyyMMdd-yyyyMMdd`
+    (both days inclusive); `false` if the attribute is missing, the timeframe
+    does not match or the value is malformed.
+  - `eduPersonEntitlement` – the Deutschlandticket entitlements, comma
+    separated. Other entitlements are not returned.
+- Mapper `l9g.cardinfo.v2.mapper.SoniaAttributeMapper`, configurable with
+  `cardinfo.attributes-mapper-v2-class`.
+
+### Changed
+
+- Students (`employeeType=s`) without `soniaStudentValidityCode`, with an
+  empty value or with `00:na:na:na:na:na:na` no longer cause an HTTP 500;
+  `validFrom` and `validUntil` are `null` (omitted) instead (v1 and v2). Other
+  malformed validity codes still result in HTTP 500.
+- Javadoc and OpenAPI descriptions completed and corrected (e.g. the response
+  fields, `validFrom` / `validUntil` semantics, `validTicket`).
+
+### Upgrade notes
+
+- Add `eduPersonEntitlement` to `ldap.user.attributes`, otherwise
+  `validTicket` is always `false`.
+
+## 1.2.0 - 2026-10-01
 
 ### ⚠️ Upgrade notes
 
 - **Runtime requires Java 25.** The Docker base image is now
-  `bellsoft/liberica-openjdk-alpine:25`.
+  `bellsoft/liberica-openjre-alpine:25`.
 - **`data/secret.bin` and all `{AES256}` values in `data/config.yaml` must be
   recreated.** The new crypto library uses AES-256/GCM with a 32-byte key; the
   old 48-byte secret (AES/CBC key + fixed IV) and its encrypted values are no

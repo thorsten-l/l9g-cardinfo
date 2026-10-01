@@ -19,7 +19,7 @@ clients can be restricted to different parts of the directory.
 *   **API Documentation:** springdoc-openapi
 
 See [CHANGELOG.md](CHANGELOG.md) for the changes per version and the upgrade
-notes for 1.2.0.
+notes (1.2.0: Java 25 and new encryption; 2.0.0: API v2).
 
 ## Building and Running
 
@@ -85,7 +85,7 @@ ldap:
     password: "{AES256}..."
   filter: (soniaExternalUid=%s)        # %s is replaced by the escaped userId
   user:
-    attributes: givenName,sn,soniaBirthday,soniaCustomerNumber,soniaChipcardBarcode,soniaHisPersonId,employeeType,soniaIsValidFrom,soniaIsValidUntil,soniaStudentValidityCode
+    attributes: eduPersonEntitlement,givenName,sn,soniaBirthday,soniaCustomerNumber,soniaChipcardBarcode,soniaHisPersonId,employeeType,soniaIsValidFrom,soniaIsValidUntil,soniaStudentValidityCode
 
 bearer-tokens:
   map:
@@ -105,7 +105,9 @@ enabling `trust-all-certificates`.
 
 The class that maps an LDAP entry to the response is configurable with
 `cardinfo.attributes-mapper-class` (default:
-`l9g.cardinfo.mapper.SoniaAttributeMapper`).
+`l9g.cardinfo.mapper.SoniaAttributeMapper`), for v2 with
+`cardinfo.attributes-mapper-v2-class` (default:
+`l9g.cardinfo.v2.mapper.SoniaAttributeMapper`).
 
 ### Command-line options
 
@@ -151,8 +153,15 @@ curl -H "Authorization: Bearer <token>" \
 }
 ```
 
-Attributes with a `null` value are omitted. Errors are returned as JSON with a
-`status` field only:
+Attributes with a `null` value are omitted.
+
+`validFrom` / `validUntil` come from `soniaIsValidFrom` / `soniaIsValidUntil`.
+For students (`employeeType=s`) they are taken from `soniaStudentValidityCode`
+(`x:DD.MM.YYYY:DD.MM.YYYY…`) instead. If that code is missing, empty or
+`00:na:na:na:na:na:na`, both fields are omitted; any other malformed code
+results in HTTP 500.
+
+Errors are returned as JSON with a `status` field only:
 
 | Status | Meaning |
 |---|---|
@@ -160,6 +169,33 @@ Attributes with a `null` value are omitted. Errors are returned as JSON with a
 | 401 | Bearer token missing, unknown or disabled |
 | 404 | No entry for `userId` below the token's base DN |
 | 500 | Internal error, e.g. `userId` not unique (details only in the server log) |
+
+### `GET /api/v2/cardinfo?userId=<id>`
+
+Same as v1 (authentication, parameters, error codes), the response
+additionally contains the Deutschlandticket information:
+
+```json
+{
+  "firstName": "John",
+  "...": "...",
+  "validTicket": true,
+  "eduPersonEntitlement": "urn:mace:ride-ticketing.de:entitlement:dticket:timeframe:20260901-20270228",
+  "status": "OK"
+}
+```
+
+*   `validTicket` is `true` if today (Europe/Berlin) lies within the timeframe
+    `yyyyMMdd-yyyyMMdd` of at least one entitlement
+    `urn:mace:ride-ticketing.de:entitlement:dticket:timeframe:…` (both days
+    inclusive). It is `false` if `eduPersonEntitlement` is missing, no
+    timeframe matches or the value is malformed. `validTicket` is always
+    present, also in error responses.
+*   `eduPersonEntitlement` contains only the Deutschlandticket entitlements
+    (comma separated); other entitlements are not returned. It is omitted if
+    there are none.
+
+`eduPersonEntitlement` must be listed in `ldap.user.attributes`.
 
 ### `GET /api/v1/buildinfo`
 
@@ -189,7 +225,7 @@ directory `/`, so the configuration is expected in the volume `/data`
 
 ```bash
 docker/BUILD_IMAGE.sh                  # build the jar and the local image l9g-cardinfo:latest
-docker/BUILDX2.sh 1.2.0 1.2 latest     # multi-arch build, push to ghcr.io and Docker Hub
+docker/BUILDX2.sh 2.0.0 2.0 latest     # multi-arch build, push to ghcr.io and Docker Hub
 ```
 
 Helper scripts that run the image against the project's `data` directory:
@@ -203,6 +239,15 @@ docker/GENERATE_TOKEN.sh               # -g
 They use `ghcr.io/thorsten-l/l9g-cardinfo:latest`; set `IMAGE=l9g-cardinfo:latest`
 to use the locally built image. `docker/docker-compose.yaml` starts the service
 with `../data` mounted read-only.
+
+`docker/compose.yaml` runs the service without building an image: it mounts
+`docker/l9g-cardinfo.jar` and `../data` read-only into
+`bellsoft/liberica-openjre-debian:25`. Copy the current jar first:
+
+```bash
+mvn clean package && cp target/l9g-cardinfo.jar docker/
+docker compose -f docker/compose.yaml up -d
+```
 
 ## Native Image
 

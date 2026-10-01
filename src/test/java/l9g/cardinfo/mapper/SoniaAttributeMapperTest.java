@@ -60,13 +60,59 @@ class SoniaAttributeMapperTest
     assertThat(response.validUntil()).isEqualTo("2026-09-30");
   }
 
-  @Test
-  void studentWithoutValidityCodeFails()
+  private static Entry student(String validityCode)
   {
     Entry entry = new Entry("uid=student,dc=sonia,dc=de");
     entry.addAttribute("employeeType", "s");
+    entry.addAttribute("soniaIsValidFrom", "1999-01-01");
+    entry.addAttribute("soniaIsValidUntil", "2099-12-31");
+    if(validityCode != null)
+    {
+      entry.addAttribute("soniaStudentValidityCode", validityCode);
+    }
+    return entry;
+  }
 
-    assertThatThrownBy(() -> mapper.mapAttributes(entry))
+  @Test
+  void studentWithoutValidityCodeHasNoValidity()
+  {
+    CardinfoResponse response = mapper.mapAttributes(student(null));
+
+    assertThat(response.validFrom()).isNull();
+    assertThat(response.validUntil()).isNull();
+    assertThat(response.status()).isEqualTo("OK");
+  }
+
+  @Test
+  void studentWithEmptyValidityCodeHasNoValidity()
+  {
+    for(String code : new String[]{ "", "   " })
+    {
+      CardinfoResponse response = mapper.mapAttributes(student(code));
+
+      assertThat(response.validFrom()).as("'%s'", code).isNull();
+      assertThat(response.validUntil()).as("'%s'", code).isNull();
+    }
+  }
+
+  @Test
+  void studentWithNaValidityCodeHasNoValidity()
+  {
+    CardinfoResponse response = mapper.mapAttributes(
+      student(SoniaAttributeMapper.NO_VALIDITY_CODE));
+
+    assertThat(response.validFrom()).isNull();
+    assertThat(response.validUntil()).isNull();
+    assertThat(response.status()).isEqualTo("OK");
+  }
+
+  @Test
+  void otherNaValidityCodesStillFail()
+  {
+    assertThatThrownBy(() -> mapper.mapAttributes(
+      student("01:na:na:na:na:na:na")))
+      .isInstanceOf(MapperException.class);
+    assertThatThrownBy(() -> mapper.mapAttributes(student("00:na")))
       .isInstanceOf(MapperException.class);
   }
 

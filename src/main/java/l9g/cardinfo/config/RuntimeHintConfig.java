@@ -19,10 +19,14 @@ import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
-import l9g.cardinfo.mapper.SoniaAttributeMapper;
 import l9g.cardinfo.handler.LdapHandler;
 import org.springframework.aot.hint.MemberCategory;
 
+/**
+ * GraalVM native image hints for classes that are used via reflection.
+ *
+ * @author Thorsten Ludewig (t.ludewig@gmail.com)
+ */
 @Configuration
 @ImportRuntimeHints(RuntimeHintConfig.RuntimeHint.class)
 public class RuntimeHintConfig
@@ -34,9 +38,14 @@ public class RuntimeHintConfig
     @Override
     public void registerHints(RuntimeHints hints, ClassLoader classLoader)
     {
-      hints.reflection().registerType(SoniaAttributeMapper.class,
+      hints.reflection().registerType(
+        l9g.cardinfo.mapper.SoniaAttributeMapper.class,
         MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
-      
+
+      hints.reflection().registerType(
+        l9g.cardinfo.v2.mapper.SoniaAttributeMapper.class,
+        MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+
       hints.reflection().registerType(LdapHandler.class,
         MemberCategory.ACCESS_DECLARED_FIELDS);
     }

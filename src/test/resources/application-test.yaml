@@ -14,7 +14,7 @@ ldap:
     dn: cn=Directory Manager
   filter: (soniaExternalUid=%s)
   user:
-    attributes: givenName,sn,soniaBirthday,soniaCustomerNumber,soniaChipcardBarcode,soniaHisPersonId,employeeType,soniaIsValidFrom,soniaIsValidUntil,soniaStudentValidityCode
+    attributes: eduPersonEntitlement,givenName,sn,soniaBirthday,soniaCustomerNumber,soniaChipcardBarcode,soniaHisPersonId,employeeType,soniaIsValidFrom,soniaIsValidUntil,soniaStudentValidityCode
 
 bearer-tokens:
   map:

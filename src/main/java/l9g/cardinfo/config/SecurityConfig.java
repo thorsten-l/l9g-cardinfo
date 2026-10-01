@@ -68,7 +68,13 @@ public class SecurityConfig
 {
   private final BearerTokenConfig bearerTokenConfig;
 
-
+  /**
+   * Delegates authentication errors to the {@link HandlerExceptionResolver},
+   * so they are answered as JSON by the global exception handler.
+   *
+   * @param resolver the MVC exception resolver
+   * @return the entry point
+   */
   @Bean
   public AuthenticationEntryPoint authenticationEntryPoint(
     @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver
@@ -88,7 +94,8 @@ public class SecurityConfig
    *         is created (stateless).</li>
    *     <li>Sets up a custom entry point to delegate auth exceptions.</li>
    *     <li>Adds the {@link StaticBearerTokenFilter} to process Bearer tokens.</li>
-   *     <li>Requires authentication for {@code /api/v1/cardinfo} (any HTTP
+   *     <li>Requires authentication for {@code /api/v1/cardinfo} and
+   *         {@code /api/v2/cardinfo} (any HTTP
    *         method).</li>
    *     <li>Permits all other requests.</li>
    * </ul>
@@ -119,7 +126,7 @@ public class SecurityConfig
 
     http.authorizeHttpRequests(auth -> auth
       // all HTTP methods (HEAD is served by the GET handler)
-      .requestMatchers("/api/v1/cardinfo/**").authenticated()
+      .requestMatchers("/api/v1/cardinfo/**", "/api/v2/cardinfo/**").authenticated()
       .anyRequest().permitAll()
     );
 

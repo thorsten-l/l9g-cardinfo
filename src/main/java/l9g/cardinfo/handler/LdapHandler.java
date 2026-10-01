@@ -135,6 +135,18 @@ public class LdapHandler
     return sslUtil.createSSLSocketFactory();
   }
 
+  /**
+   * Searches the entry of a user.
+   * <p>
+   * The userId is escaped before it is inserted into {@code ldap.filter}.
+   *
+   * @param ldapBaseDn the search base DN (of the bearer token)
+   * @param ldapScope the search scope: {@code sub} (default), {@code one} or
+   * {@code base}
+   * @param userId the user id
+   * @return the entry, or {@code null} if no entry was found
+   * @throws Exception if the search fails or the userId is not unique
+   */
   public Entry getEntry( String ldapBaseDn, String ldapScope, String userId)
     throws Exception
   {

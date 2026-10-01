@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Thorsten Ludewig (t.ludewig@gmail.com).
+ * Copyright 2026 Thorsten Ludewig (t.ludewig@gmail.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package l9g.cardinfo.controller;
+package l9g.cardinfo.v2.controller;
 
 import com.unboundid.ldap.sdk.Entry;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,6 +23,8 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import l9g.cardinfo.handler.LdapHandler;
+import l9g.cardinfo.token.AuthenticatedBearerToken;
 import l9g.cardinfo.token.BearerTokenConfig.BearerToken;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,21 +35,20 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import l9g.cardinfo.handler.LdapHandler;
-import l9g.cardinfo.mapper.LdapEntryToCardinfoResponse;
-import l9g.cardinfo.token.AuthenticatedBearerToken;
+import l9g.cardinfo.v2.mapper.LdapEntryToCardinfoResponse;
 
 /**
- *
- * REST controller for retrieving card information.
+ * REST controller for retrieving card information, version 2.
  * <p>
- * This controller provides endpoints for accessing user card data. Access is
- * secured and requires a valid Bearer Token for authentication.
+ * Same as {@link CardinfoController}, the response additionally contains the
+ * Deutschlandticket information ({@code validTicket},
+ * {@code eduPersonEntitlement}).
  *
  * @author Thorsten Ludewig (t.ludewig@gmail.com)
  */
-@RestController
-@RequestMapping(path = "/api/v1/cardinfo",
+// explicit bean name, v1 uses the same simple class name
+@RestController("cardinfoControllerV2")
+@RequestMapping(path = "/api/v2/cardinfo",
                 produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 @Slf4j
@@ -58,20 +59,20 @@ public class CardinfoController
   private final LdapEntryToCardinfoResponse mapper;
 
   /**
-   * Retrieves card information for a given user ID.
+   * Retrieves card information including the Deutschlandticket information for
+   * a given user ID.
    * <p>
-   * This endpoint fetches card details based on the provided user ID.
-   * Authentication is required, and the authenticated client is identified
-   * by the Bearer token.
+   * The search is restricted to the LDAP base DN and scope of the
+   * authenticated Bearer token.
    *
-   * @param userId The ID of the user to retrieve card information for.
+   * @param userId The ID of the user (soniaExternalUid).
    * @param token The authenticated bearer token of the client making the request.
    *
-   * @return A {@link ResponseEntity} containing the {@link CardinfoResponse} with
-   * the card information.
+   * @return A {@link ResponseEntity} containing the {@link CardinfoResponse}
+   * (HTTP 200), or a status-only response (HTTP 404, 500).
    */
-  @Operation(summary = "Retrieve card info",
-             description = "Retrieve card info. Authentication is required via a Bearer Token in the Authorization header.",
+  @Operation(summary = "Retrieve card info (v2)",
+             description = "Retrieve card info including the Deutschlandticket information. Authentication is required via a Bearer Token in the Authorization header.",
              security =
              @SecurityRequirement(name = "bearerAuth"),
              responses =
@@ -80,11 +81,8 @@ public class CardinfoController
                             content =
                             @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                                      schema =
-                                     @Schema(oneOf =
-                                     {
-                                       CardinfoResponse.class
-                                   }))),
-               @ApiResponse(responseCode = "400", description = "Bad request, e.g., no parameter or multiple parameters provided, or invalid token",
+                                     @Schema(implementation = CardinfoResponse.class))),
+               @ApiResponse(responseCode = "400", description = "Bad request, e.g., no userId parameter provided",
                             content =
                             @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                                      schema =
@@ -112,7 +110,7 @@ public class CardinfoController
                                      examples =
                                      @ExampleObject(
                                        name = "NotFound",
-                                       value = "{\"status\": \"ERROR: UserId not found.\"}"
+                                       value = "{\"validTicket\": false, \"status\": \"ERROR: User not found.\"}"
                                      ))),
                @ApiResponse(responseCode = "500", description = "Internal server error",
                             content =
@@ -122,7 +120,7 @@ public class CardinfoController
                                      examples =
                                      @ExampleObject(
                                        name = "InternalServerError",
-                                       value = "{\"status\": \"ERROR: Internal server error.\"}"
+                                       value = "{\"validTicket\": false, \"status\": \"ERROR: Internal server error.\"}"
                                      )))
              })
   @GetMapping
@@ -133,7 +131,6 @@ public class CardinfoController
   )
   {
     log.info("owner={}", token.getOwner());
-    log.debug("token={}", token);
     log.info("userId={}", userId);
 
     try

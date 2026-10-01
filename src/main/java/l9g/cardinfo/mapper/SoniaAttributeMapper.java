@@ -20,12 +20,29 @@ import l9g.cardinfo.controller.CardinfoResponse;
 import lombok.extern.slf4j.Slf4j;
 
 /**
+ * Maps the SONIA LDAP attributes to a {@link CardinfoResponse}.
+ * <p>
+ * {@code validFrom} / {@code validUntil} are taken from
+ * {@code soniaIsValidFrom} / {@code soniaIsValidUntil}. For students
+ * ({@code employeeType=s}) they are taken from {@code soniaStudentValidityCode}
+ * ({@code x:DD.MM.YYYY:DD.MM.YYYY...}) instead; if the code is missing, empty or
+ * {@value #NO_VALIDITY_CODE}, both are {@code null}.
  *
  * @author Thorsten Ludewig (t.ludewig@gmail.com)
  */
 @Slf4j
 public class SoniaAttributeMapper implements LdapEntryToCardinfoResponse
 {
+  /**
+   * Student validity code without validity dates.
+   */
+  public static final String NO_VALIDITY_CODE = "00:na:na:na:na:na:na";
+
+  /**
+   * {@inheritDoc}
+   *
+   * @throws MapperException if the student validity code is malformed
+   */
   @Override
   public CardinfoResponse mapAttributes(Entry entry)
   {
@@ -45,7 +62,14 @@ public class SoniaAttributeMapper implements LdapEntryToCardinfoResponse
     {
       String validityCode = entry.getAttributeValue("soniaStudentValidityCode");
       log.debug("Student validity code = {}", validityCode);
-      if ( validityCode != null && validityCode.split(":").length > 2)
+      if ( validityCode == null || validityCode.isBlank()
+        || NO_VALIDITY_CODE.equalsIgnoreCase(validityCode.trim()))
+      {
+        // no validity dates available for this student
+        validFrom = null;
+        validUntil = null;
+      }
+      else if ( validityCode.split(":").length > 2)
       {
         String[] tokens = validityCode.split(":");
         
@@ -69,7 +93,7 @@ public class SoniaAttributeMapper implements LdapEntryToCardinfoResponse
       }
       else
       {
-        throw new MapperException("missing or malformed student validity code");
+        throw new MapperException("malformed student validity code");
       }
     }
 

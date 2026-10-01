@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package l9g.cardinfo.mapper;
+package l9g.cardinfo.v2.mapper;
 
 import com.unboundid.ldap.sdk.Entry;
-import l9g.cardinfo.controller.CardinfoResponse;
+import l9g.cardinfo.v2.controller.CardinfoResponse;
 
 /**
- * Maps an LDAP entry to a {@link CardinfoResponse} (API v1).
+ * Maps an LDAP entry to a {@link CardinfoResponse} (API v2).
  * <p>
- * The implementation is selected with {@code cardinfo.attributes-mapper-class}
- * and needs a public no-arg constructor.
+ * The implementation is selected with
+ * {@code cardinfo.attributes-mapper-v2-class} and needs a public no-arg
+ * constructor.
  *
  * @author Thorsten Ludewig (t.ludewig@gmail.com)
  */
@@ -32,7 +33,7 @@ public interface LdapEntryToCardinfoResponse
    * Maps the attributes of an LDAP entry.
    *
    * @param entry the LDAP entry of the user
-   * @return the card information
+   * @return the card information including the Deutschlandticket information
    */
   public CardinfoResponse mapAttributes( Entry entry );
 }
