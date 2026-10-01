@@ -1,0 +1,43 @@
+# test configuration, the LDAP port and the encrypted values are set in
+# CardinfoApiIntegrationTest
+
+logging:
+  level:
+    root: WARN
+    l9g: INFO
+
+ldap:
+  host:
+    name: localhost
+    ssl: false
+  bind:
+    dn: cn=Directory Manager
+  filter: (soniaExternalUid=%s)
+  user:
+    attributes: givenName,sn,soniaBirthday,soniaCustomerNumber,soniaChipcardBarcode,soniaHisPersonId,employeeType,soniaIsValidFrom,soniaIsValidUntil,soniaStudentValidityCode
+
+bearer-tokens:
+  map:
+    people-token:
+      token: "people-token-value"
+      owner: people
+      description: plain text token, restricted to ou=people
+      enabled: true
+      ldap:
+        base-dn: ou=people,dc=sonia,dc=de
+        scope: sub
+    other-token:
+      token: "other-token-value"
+      owner: other
+      description: plain text token, restricted to ou=other
+      enabled: true
+      ldap:
+        base-dn: ou=other,dc=sonia,dc=de
+        scope: one
+    disabled-token:
+      token: "disabled-token-value"
+      owner: disabled
+      enabled: false
+      ldap:
+        base-dn: dc=sonia,dc=de
+        scope: sub

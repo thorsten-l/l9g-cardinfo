@@ -20,7 +20,6 @@ import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
 import l9g.cardinfo.mapper.SoniaAttributeMapper;
-import l9g.cardinfo.crypto.EncryptedValue;
 import l9g.cardinfo.handler.LdapHandler;
 import org.springframework.aot.hint.MemberCategory;
 
@@ -38,13 +37,8 @@ public class RuntimeHintConfig
       hints.reflection().registerType(SoniaAttributeMapper.class,
         MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
       
-      hints.reflection().registerType(EncryptedValue.class,
-        MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
-        MemberCategory.INVOKE_DECLARED_METHODS,
-        MemberCategory.INVOKE_PUBLIC_METHODS);
-      
       hints.reflection().registerType(LdapHandler.class,
-        MemberCategory.DECLARED_FIELDS);
+        MemberCategory.ACCESS_DECLARED_FIELDS);
     }
 
   }

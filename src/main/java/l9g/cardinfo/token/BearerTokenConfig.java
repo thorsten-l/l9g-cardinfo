@@ -54,6 +54,7 @@ public class BearerTokenConfig
   {
     @Schema(description = "The actual secret token string.",
             example = "abc-123-def-456")
+    @ToString.Exclude
     private String token;
 
     @Schema(description = "The owner or client associated with the token.",

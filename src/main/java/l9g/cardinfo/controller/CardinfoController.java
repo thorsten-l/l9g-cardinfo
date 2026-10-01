@@ -136,28 +136,25 @@ public class CardinfoController
     log.debug("token={}", token);
     log.info("userId={}", userId);
 
-    Entry entry = null;
     try
     {
-      entry = ldapHandler.getEntry(
+      Entry entry = ldapHandler.getEntry(
         token.getLdap().getBaseDn(), token.getLdap().getScope(), userId);
-    }
-    catch(Throwable e)
-    {
-      log.error("Error retrieving LDAP entry for userId {}: {}",
-        userId, e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body(new CardinfoResponse("ERROR: Internal server error. " + e.getMessage()));
-    }
-    
-    if(entry != null)
-    {
+
+      if(entry == null)
+      {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+          .body(new CardinfoResponse("ERROR: User not found."));
+      }
+
       return ResponseEntity.ok(mapper.mapAttributes(entry));
     }
-    else
+    catch(Exception e)
     {
-      return ResponseEntity.status(HttpStatus.NOT_FOUND)
-        .body(new CardinfoResponse("ERROR: User not found."));
+      // details are logged only, never returned to the client
+      log.error("Error retrieving cardinfo for userId {}", userId, e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body(new CardinfoResponse("ERROR: Internal server error."));
     }
   }
 

@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -52,7 +53,7 @@ public class GlobalExceptionHandler
   {
     log.error("{}", ex.getMessage());
     return ResponseEntity.badRequest()
-      .body(new CardinfoResponse("ERROR: " + ex.getMessage()));
+      .body(new CardinfoResponse("ERROR: Missing or invalid token."));
   }
   
   /**
@@ -67,6 +68,23 @@ public class GlobalExceptionHandler
   {
       log.error("Authentication failed: {}", ex.getMessage());
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-              .body(new CardinfoResponse("ERROR: " + ex.getMessage()));
+              .body(new CardinfoResponse(
+                "ERROR: Unauthorized, a valid Bearer token is required."));
+  }
+
+  /**
+   * Handles a missing request parameter (e.g. no userId).
+   *
+   * @param ex The caught {@link MissingServletRequestParameterException}.
+   * @return A {@link ResponseEntity} with HTTP status 400 (Bad Request).
+   */
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  public ResponseEntity<CardinfoResponse> handleMissingParameter(
+    MissingServletRequestParameterException ex)
+  {
+    log.error("Bad request: {}", ex.getMessage());
+    return ResponseEntity.badRequest()
+      .body(new CardinfoResponse("ERROR: Bad request, please provide a single "
+        + ex.getParameterName() + " parameter."));
   }
 }

@@ -15,12 +15,12 @@
  */
 package l9g.cardinfo;
 
-import l9g.cardinfo.crypto.CryptoHandler;
-import l9g.cardinfo.crypto.PasswordGenerator;
+import de.l9g.crypto.core.CryptoHandler;
+import de.l9g.crypto.core.PasswordGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 
 @Slf4j
 @SpringBootApplication(exclude =
@@ -34,31 +34,30 @@ public class Application
   {
     if(args != null)
     {
-      CryptoHandler cryptoHandler = CryptoHandler.getInstance();
-
+      // the secret is loaded (or created) only by the options that need it
       if(args.length == 2 && "-e".equals(args[0]))
       {
-        System.out.println(args[1] + " = \"" + cryptoHandler.encrypt(args[1]) + "\"");
+        System.out.println(args[1] + " = \"" + CryptoHandler.getInstance().encrypt(args[1]) + "\"");
         System.exit(0);
       }
 
       if(args.length == 1 && "-g".equals(args[0]))
       {
         String token = PasswordGenerator.generate(32);
-        System.out.println("\"" + token + "\" = \"" + cryptoHandler.encrypt(token) + "\"");
+        System.out.println("\"" + token + "\" = \"" + CryptoHandler.getInstance().encrypt(token) + "\"");
         System.exit(0);
       }
       
       if(args.length == 1 && "-i".equals(args[0]))
       {
-        cryptoHandler.encrypt("init");
+        CryptoHandler.getInstance().encrypt("init");
         log.info("Initialize data/secret.bin");
         System.exit(0);
       }
 
       if(args.length == 1 && "-h".equals(args[0]))
       {
-        System.out.println("l9g-uidgen [-e clear text] [-g] [-h]");
+        System.out.println("l9g-cardinfo [-e clear text] [-g] [-i] [-h]");
         System.out.println("  -e : encrypt clear text");
         System.out.println("  -g : generate new token");
         System.out.println("  -i : initialize data/secret.bin");

@@ -16,6 +16,7 @@
 package l9g.cardinfo.handler;
 
 import com.unboundid.ldap.sdk.Entry;
+import com.unboundid.ldap.sdk.Filter;
 import com.unboundid.ldap.sdk.LDAPConnection;
 import com.unboundid.ldap.sdk.LDAPConnectionOptions;
 import com.unboundid.ldap.sdk.LDAPException;
@@ -23,11 +24,12 @@ import com.unboundid.ldap.sdk.ResultCode;
 import com.unboundid.ldap.sdk.SearchRequest;
 import com.unboundid.ldap.sdk.SearchResult;
 import com.unboundid.ldap.sdk.SearchScope;
+import com.unboundid.util.ssl.HostNameSSLSocketVerifier;
+import com.unboundid.util.ssl.JVMDefaultTrustManager;
 import com.unboundid.util.ssl.SSLUtil;
 import com.unboundid.util.ssl.TrustAllTrustManager;
 import java.security.GeneralSecurityException;
 import javax.net.ssl.SSLSocketFactory;
-import l9g.cardinfo.crypto.EncryptedValue;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,10 +64,18 @@ public class LdapHandler
   @Value("${ldap.host.ssl}")
   private boolean ldapSslEnabled;
 
+  /**
+   * Accept any server certificate. Only for testing - this disables protection
+   * against man-in-the-middle attacks.
+   */
+  @Value("${ldap.host.trust-all-certificates:false}")
+  private boolean ldapTrustAllCertificates;
+
   @Value("${ldap.bind.dn}")
   private String ldapBindDn;
 
-  @EncryptedValue("${ldap.bind.password}")
+  // {AES256} values are decrypted by l9g crypto-spring
+  @Value("${ldap.bind.password}")
   private String ldapBindPassword;
 
   @Value("${ldap.filter}")
@@ -81,13 +91,16 @@ public class LdapHandler
     LOGGER.debug("port={}", ldapPort);
     LOGGER.debug("ssl={}", ldapSslEnabled);
     LOGGER.debug("bind dn={}", ldapBindDn);
-    LOGGER.trace("bind pw={}", ldapBindPassword);
 
     LDAPConnection ldapConnection;
 
     LDAPConnectionOptions options = new LDAPConnectionOptions();
     if(ldapSslEnabled)
     {
+      if( ! ldapTrustAllCertificates)
+      {
+        options.setSSLSocketVerifier(new HostNameSSLSocketVerifier(false));
+      }
       ldapConnection = new LDAPConnection(createSSLSocketFactory(), options,
         ldapHostname, ldapPort,
         ldapBindDn,
@@ -108,14 +121,25 @@ public class LdapHandler
     throws
     GeneralSecurityException
   {
-    SSLUtil sslUtil = new SSLUtil(new TrustAllTrustManager());
+    SSLUtil sslUtil;
+    if(ldapTrustAllCertificates)
+    {
+      LOGGER.warn("LDAP server certificate validation is DISABLED "
+        + "(ldap.host.trust-all-certificates=true)");
+      sslUtil = new SSLUtil(new TrustAllTrustManager());
+    }
+    else
+    {
+      sslUtil = new SSLUtil(JVMDefaultTrustManager.getInstance());
+    }
     return sslUtil.createSSLSocketFactory();
   }
 
   public Entry getEntry( String ldapBaseDn, String ldapScope, String userId)
     throws Exception
   {
-    String filter = String.format(ldapFilter, userId);
+    // escape the user supplied value to prevent LDAP filter injection
+    String filter = String.format(ldapFilter, Filter.encodeValue(userId));
     LOGGER.debug("LDAP filter: {}", filter);
 
     SearchScope scope = SearchScope.SUB;

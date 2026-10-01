@@ -1,5 +1,9 @@
 #!/bin/bash
+set -euo pipefail
+
+IMAGE="${IMAGE:-ghcr.io/thorsten-l/l9g-cardinfo:latest}"
+DATA_DIR="$(cd "$(dirname "$0")/../data" && pwd)"
 
 docker run --rm \
-  -v ../data:/data:ro \
-  -it ghcr.io/thorsten-l/l9g-uidgen:latest -g
+  -v "$DATA_DIR:/data:ro" \
+  -it "$IMAGE" -g

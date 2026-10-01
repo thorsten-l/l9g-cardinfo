@@ -6,13 +6,13 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.5.9</version>
+    <version>4.1.1</version>
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
   
   <groupId>l9g.webapp</groupId>
   <artifactId>l9g-cardinfo</artifactId>
-  <version>1.1.1</version>
+  <version>1.2.0</version>
   <name>L9G Card Info</name>
   
   <description>card information service</description>
@@ -44,9 +44,11 @@
   </developers>
   
   <properties>
-    <java.version>21</java.version>
+    <java.version>25</java.version>
+    <lombok.version>1.18.48</lombok.version>
     <build.profile>default</build.profile>
     <exec.inheritIo>true</exec.inheritIo>
+    <l9g.crypto.version>1.0.7</l9g.crypto.version>
   </properties>
   
   <dependencies>
@@ -57,7 +59,7 @@
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
+      <artifactId>spring-boot-starter-webmvc</artifactId>
     </dependency>
     <dependency>
       <groupId>com.unboundid</groupId>
@@ -72,13 +74,37 @@
     <dependency>
       <groupId>org.springdoc</groupId>
       <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-      <version>2.8.14</version>
+      <version>3.1.1</version>
     </dependency>
 
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <optional>true</optional>
+    </dependency>
+
+    <!-- L9G Crypto -->
+    <dependency>
+      <groupId>de.l9g</groupId>
+      <artifactId>crypto-core</artifactId>
+      <version>${l9g.crypto.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>de.l9g</groupId>
+      <artifactId>crypto-spring</artifactId>
+      <version>${l9g.crypto.version}</version>
+    </dependency>
+
+    <!-- test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security-test</artifactId>
+      <scope>test</scope>
     </dependency>
 
   </dependencies>
@@ -91,7 +117,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <executable>true</executable>
           <annotationProcessorPaths>
             <path>
               <groupId>org.projectlombok</groupId>
@@ -102,6 +127,15 @@
       </plugin>
       
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <!-- isolate tests from the real data/config.yaml and data/secret.bin -->
+          <workingDirectory>${project.build.directory}/test-work</workingDirectory>
+        </configuration>
+      </plugin>
+
+      <plugin>
         <groupId>org.graalvm.buildtools</groupId>
         <artifactId>native-maven-plugin</artifactId>
       </plugin>
@@ -110,7 +144,6 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <executable>true</executable>
           <excludes>
             <exclude>
               <groupId>org.projectlombok</groupId>

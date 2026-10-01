@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-export JAVA_HOME="/opt/graalvm/21"
+export JAVA_HOME="/opt/graalvm/25"
 export PATH=$JAVA_HOME/bin:$PATH
 
 echo JAVA_HOME=$JAVA_HOME

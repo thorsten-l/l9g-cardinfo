@@ -1,9 +1,9 @@
 services:
  
-  l9g-uidgen:
-    image: ghcr.io/thorsten-l/l9g-uidgen:latest
-    container_name: l9g-uidgen
-    hostname: uidgen.dev.sonia.de
+  l9g-cardinfo:
+    image: ghcr.io/thorsten-l/l9g-cardinfo:latest
+    container_name: l9g-cardinfo
+    hostname: cardinfo.dev.sonia.de
     restart: unless-stopped
     volumes:
       - ../data:/data:ro

@@ -20,21 +20,30 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import de.l9g.crypto.core.CryptoHandler;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Map;
-import l9g.cardinfo.crypto.CryptoHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
@@ -59,7 +68,6 @@ public class SecurityConfig
 {
   private final BearerTokenConfig bearerTokenConfig;
 
-  private final CryptoHandler cryptoHandler;
 
   @Bean
   public AuthenticationEntryPoint authenticationEntryPoint(
@@ -76,10 +84,12 @@ public class SecurityConfig
    * <p>
    * This bean defines the security rules:
    * <ul>
-   *     <li>Disables CSRF, sessions, HTTP Basic, and form login.</li>
+   *     <li>Disables CSRF, HTTP Basic, form login and logout; no HTTP session
+   *         is created (stateless).</li>
    *     <li>Sets up a custom entry point to delegate auth exceptions.</li>
    *     <li>Adds the {@link StaticBearerTokenFilter} to process Bearer tokens.</li>
-   *     <li>Requires authentication for the {@code /api/v1/cardinfo} endpoint.</li>
+   *     <li>Requires authentication for {@code /api/v1/cardinfo} (any HTTP
+   *         method).</li>
    *     <li>Permits all other requests.</li>
    * </ul>
    *
@@ -94,7 +104,8 @@ public class SecurityConfig
   {
     http
       .csrf(csrf -> csrf.disable())
-      .sessionManagement(sm -> sm.disable())
+      .sessionManagement(sm -> sm
+        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
       .httpBasic(hb -> hb.disable())
       .formLogin(fl -> fl.disable())
       .logout(lo -> lo.disable());
@@ -103,11 +114,12 @@ public class SecurityConfig
       .authenticationEntryPoint(authenticationEntryPoint)
     );
 
-    http.addFilterBefore(new StaticBearerTokenFilter(bearerTokenConfig, cryptoHandler),
+    http.addFilterBefore(new StaticBearerTokenFilter(bearerTokenConfig),
       AbstractPreAuthenticatedProcessingFilter.class);
 
     http.authorizeHttpRequests(auth -> auth
-      .requestMatchers(HttpMethod.GET, "/api/v1/cardinfo").authenticated()
+      // all HTTP methods (HEAD is served by the GET handler)
+      .requestMatchers("/api/v1/cardinfo/**").authenticated()
       .anyRequest().permitAll()
     );
 
@@ -124,19 +136,49 @@ public class SecurityConfig
    */
   static class StaticBearerTokenFilter extends OncePerRequestFilter
   {
-    private final Map<String, BearerTokenConfig.BearerToken> tokensByName;
+    private static final String BEARER_PREFIX = "Bearer ";
 
+    private final SecurityContextHolderStrategy securityContextHolderStrategy =
+      SecurityContextHolder.getContextHolderStrategy();
+
+    /**
+     * SHA-256 hash of the token value -> token name.
+     * Only enabled tokens are indexed and no clear text token is kept.
+     */
     private final Map<String, String> tokenIndex;
 
-    StaticBearerTokenFilter(BearerTokenConfig config, CryptoHandler cryptoHandler)
+    private final Map<String, BearerTokenConfig.BearerToken> tokensByName;
+
+    StaticBearerTokenFilter(BearerTokenConfig config)
     {
-      this.tokensByName = config.getMap();
-      this.tokenIndex = tokensByName.entrySet().stream()
-        .collect(java.util.stream.Collectors.toUnmodifiableMap(
-          e -> cryptoHandler.decrypt(e.getValue().getToken()),
-          Map.Entry :: getKey,
-          (a, b) -> a
-        ));
+      this.tokensByName = (config.getMap() != null)
+        ? Map.copyOf(config.getMap()) : Map.of();
+
+      Map<String, String> index = new HashMap<>();
+      tokensByName.forEach((name, bearerToken) ->
+      {
+        // {AES256} values are already decrypted by l9g crypto-spring
+        String token = bearerToken.getToken();
+        if( ! bearerToken.isEnabled())
+        {
+          log.info("bearer token '{}' is disabled", name);
+        }
+        else if(token == null || token.isBlank())
+        {
+          log.warn("bearer token '{}' has no value and is ignored", name);
+        }
+        else if(token.startsWith(CryptoHandler.AES256_PREFIX))
+        {
+          throw new IllegalStateException("bearer token '" + name
+            + "' has not been decrypted");
+        }
+        else if(index.putIfAbsent(sha256(token), name) != null)
+        {
+          throw new IllegalStateException("bearer token '" + name
+            + "' uses the same value as another token");
+        }
+      });
+      this.tokenIndex = Map.copyOf(index);
     }
 
     @Override
@@ -144,42 +186,29 @@ public class SecurityConfig
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException
     {
-
       String auth = request.getHeader(HttpHeaders.AUTHORIZATION);
-
-      if(auth == null ||  ! auth.startsWith("Bearer "))
+      if(auth == null ||  ! auth.regionMatches(true, 0, BEARER_PREFIX, 0,
+        BEARER_PREFIX.length()))
       {
         chain.doFilter(request, response);
         return;
       }
 
-      String token = auth.substring("Bearer ".length()).trim();
-      if(token.isEmpty())
-      {
-        chain.doFilter(request, response);
-        return;
-      }
+      String token = auth.substring(BEARER_PREFIX.length()).trim();
+      String name = token.isEmpty() ? null : tokenIndex.get(sha256(token));
+      BearerTokenConfig.BearerToken bt = (name != null)
+        ? tokensByName.get(name) : null;
 
-      String name = tokenIndex.get(token);
-      if(name == null)
-      {
-        chain.doFilter(request, response);
-        return;
-      }
-
-      BearerTokenConfig.BearerToken bt = tokensByName.get(name);
       if(bt == null ||  ! bt.isEnabled())
       {
         chain.doFilter(request, response);
         return;
       }
 
-      Authentication authToken = new StaticBearerAuthenticationToken(
-        name,
-        bt.getOwner(),
-        AuthorityUtils.NO_AUTHORITIES
-      );
-      SecurityContextHolder.getContext().setAuthentication(authToken);
+      SecurityContext context = securityContextHolderStrategy.createEmptyContext();
+      context.setAuthentication(new StaticBearerAuthenticationToken(
+        name, bt.getOwner(), AuthorityUtils.NO_AUTHORITIES));
+      securityContextHolderStrategy.setContext(context);
 
       try
       {
@@ -187,7 +216,20 @@ public class SecurityConfig
       }
       finally
       {
-        SecurityContextHolder.clearContext();
+        securityContextHolderStrategy.clearContext();
+      }
+    }
+
+    static String sha256(String value)
+    {
+      try
+      {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+          .digest(value.getBytes(StandardCharsets.UTF_8)));
+      }
+      catch(NoSuchAlgorithmException e)
+      {
+        throw new IllegalStateException(e);
       }
     }
 
@@ -206,7 +248,7 @@ public class SecurityConfig
     private final String owner;
 
     StaticBearerAuthenticationToken(String principalName, String owner,
-      java.util.Collection authorities)
+      Collection<? extends GrantedAuthority> authorities)
     {
       super(authorities);
       this.principalName = principalName;

@@ -18,6 +18,8 @@ ldap:
     name: id.dev.sonia.de
     port: 3389
     ssl: false
+    # only for testing: accept any LDAPS server certificate (default: false)
+    # trust-all-certificates: false
   bind:
     dn: cn=Directory Manager
     password: "<your password>"

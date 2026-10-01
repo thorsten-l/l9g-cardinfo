@@ -38,7 +38,7 @@ public class UiRedirect
    * @return A {@link ResponseEntity} that performs a PERMANENT_REDIRECT.
    */
   @GetMapping("/api/docs")
-  public ResponseEntity redirect()
+  public ResponseEntity<Void> redirect()
   {
     return ResponseEntity
       .status(HttpStatus.PERMANENT_REDIRECT)

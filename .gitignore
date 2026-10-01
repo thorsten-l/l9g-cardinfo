@@ -74,6 +74,9 @@ tasks/
 *.ear
 
 .gemini/
+.claude
 
 l9g-cardinfo
+GEMINI.md
+CLAUDE.md
 

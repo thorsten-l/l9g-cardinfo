@@ -1,22 +1,27 @@
 #!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")"
 
-export JAVA_HOME=`/usr/libexec/java_home -v 21`
+if (( $# == 0 )); then
+  echo "usage: $0 tag [tag ...]   e.g. $0 1.2.0 1.2 latest"
+  exit 1
+fi
 
-( cd ..; mvn clean package  )
-cp ../target/l9g-uidgen.jar .
+export JAVA_HOME=`/usr/libexec/java_home -v 25`
 
-TAGS=""
+( cd ..; mvn clean package )
+cp ../target/l9g-cardinfo.jar .
+
+TAGS=()
 
 while (( $# )); do
-  TAGS="$TAGS --tag ghcr.io/thorsten-l/l9g-uidgen:$1"
-  TAGS="$TAGS --tag tludewig/l9g-uidgen:$1"
+  TAGS+=(--tag "ghcr.io/thorsten-l/l9g-cardinfo:$1")
+  TAGS+=(--tag "tludewig/l9g-cardinfo:$1")
   shift
 done
-
-BUILDING_TAGS=$(echo $TAGS | tr ' ' "\n")
 
 ../private/LOGIN.sh
 
 docker buildx build --progress plain --no-cache \
   --push \
-  --platform linux/arm64,linux/amd64 $BUILDING_TAGS .
+  --platform linux/arm64,linux/amd64 "${TAGS[@]}" .
